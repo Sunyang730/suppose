@@ -1,0 +1,9 @@
+[V.1]
+
+*Just a black line. No colors or drawing parameters.
+*Branches with pictures
+*Ability to clone branch.
+*Ability to draw.
+*Don't care about drawing performance.
+
+[V.2]
