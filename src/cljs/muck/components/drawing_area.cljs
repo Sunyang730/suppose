@@ -34,6 +34,11 @@
              (canvas/close-path))
          nil)))
 
+(defn draw-all-lines [monet-canvas paths]
+  (doseq [path paths]
+               (draw-line (:ctx monet-canvas) path)))
+
+
 (defn last-ind [v]
  (- (count v) 1))
 
@@ -74,7 +79,6 @@
                                             (fn [step]
                                               (conj step [(:x event) (:y event)])))))))
                  nil))
-
             (recur))))))
     om/IDidMount
     (did-mount [_]
@@ -93,8 +97,7 @@
                        :onMouseUp (fn [e]
                                     (put! canvas-events (make-action "mouseUp" e)))
                       }
-             (doseq [path (:state (active-commit history))]
-               (draw-line (:ctx monet-canvas) path)) ))))
+             (draw-all-lines monet-canvas (:state (active-commit history)))))))
 
 
 

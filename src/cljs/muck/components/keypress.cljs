@@ -2,7 +2,8 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
-            [cljs.core.async :refer [put! chan <!]]))
+            [cljs.core.async :refer [put! chan <!]]
+            [goog.events :as events]))
 
 ;; This might make a good general component for handling key events.
 
@@ -31,20 +32,20 @@
 
 (def key-event
   {
-   :keyup {:c (fn [] (.log js/console "das a key press bb"))}
+   :keyup {:c (fn [app] (.log js/console "das a key press bb"))}
    :keydown {}
   })
 
 
 (defn handle-key-event [app [press-type event]]
-  (.log js/console "hapinin")
   (let [keyCode (.-keyCode event)
         metaKey (.-metaKey event)
         shiftKey (.-shiftKey event)
         ctrlKey (.-ctrlKey event)
-        event-map (press-type key-event)]
-      (if (contains? event-map keyCode)
-        ((get event-map keyCode) app)) ))
+        event-map (press-type key-event)
+        key-keyword (get key-codes keyCode)]
+      (if (contains? event-map key-keyword)
+        ((key-keyword event-map) app))))
 
 
 (defn key-listener [app owner]
@@ -58,12 +59,22 @@
         (go
           (while true
             (let [event (<! keychan)]
-              (when (= ch keychan)
-                (do
-                  (handle-key-event app v))))))))
+              (do
+                (handle-key-event app event)))))))
+    om/IDidMount
+    (did-mount [_]
+      (let [keychan (om/get-state owner :keyboard-chan)]
+        (events/listen js/document "keydown" (fn [e]
+                                    (do
+                                      (.preventDefault e)
+                                      (put! keychan [:keydown e]))))
+        (events/listen js/document "keyup" (fn [e]
+                                    (do
+                                      (.preventDefault e)
+                                      (put! keychan [:keyup e]))))))
     om/IRenderState
     (render-state [this {:keys [keyboard-chan]}]
-      (dom/div #js {:keydown (fn [e]
-                                (put! keyboard-chan [:keydown e]))
-                    :keyup (fn [e]
-                                (put! keyboard-chan [:keyup e]))} ""))))
+      (dom/div nil ""))))
+
+
+

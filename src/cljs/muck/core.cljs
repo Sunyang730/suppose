@@ -5,13 +5,20 @@
             [muck.drawing_area :as drawing-area]
             [muck.keypress :as keypress]))
 
+;;If a have an active branch do I need an active commit?
+
 (defonce app-state (atom {:history {}
-                          :active-commit :start}))
+                          :active-commit :start}
+                          :branches {}
+                          :active-branch :master))
 
 (comment (reset! app-state {:history {}
-                            :active-commit :start}))
+                            :active-commit :start
+                            }))
 
 
+(defn branches-commits [branches-map history]
+  )
 
 (defn main []
   (om/root
@@ -21,9 +28,7 @@
         (render [this]
           (dom/div nil
                    (om/build drawing-area/view app)
+                   (commit-view)
                    (om/build keypress/key-listener app)))))
     app-state
     {:target (. js/document (getElementById "app"))}))
-
-
- 
