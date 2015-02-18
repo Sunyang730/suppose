@@ -62,12 +62,13 @@
           (let [event (<! canvas-events)]
             ;;Seperate the recording of events from
             (cond
-             (= (:type event) "mouseDown") (om/transact! app-state (fn [{:keys [history active-commit mousePosition] :as app-state}]
+             (= (:type event) "mouseDown") (om/transact! app-state (fn [{:keys [history active-commit mousePosition branches active-branch] :as app-state}]
                                                                 (let [new-commit (vc/create-commit [[(:x event) (:y event)]] (active-commit history))
                                                                       new-history (vc/add-commit history new-commit active-commit)]
                                                                   (assoc app-state :mouseDown? true
                                                                                    :history new-history
-                                                                                   :active-commit (:location new-commit)))))
+                                                                                   :active-commit (:location new-commit)
+                                                                                   :branches (assoc branches active-branch (:location new-commit))))))
              (= (:type event) "mouseUp") (om/transact! app-state :mouseDown? (fn [_] false))
              (= (:type event) "mouseMove")
                (if (:mouseDown? event)

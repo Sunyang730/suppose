@@ -3,22 +3,25 @@
             [om.dom :as dom :include-macros true]
             [muck.version_control :as vc]
             [muck.drawing_area :as drawing-area]
-            [muck.keypress :as keypress]))
+            [muck.keypress :as keypress]
+            [muck.commit :as commit]))
 
 ;;If a have an active branch do I need an active commit?
 
-(defonce app-state (atom {:history {}
-                          :active-commit :start}
-                          :branches {}
-                          :active-branch :master))
+(defonce app-state (atom {:history {:start {:location :start :state []}}
+                          :active-commit :start
+                          :branches {:master :start}
+                          :active-branch :master}))
 
 (comment (reset! app-state {:history {}
-                            :active-commit :start
-                            }))
+                            :active-commit :start}))
 
+@app-state
 
-(defn branches-commits [branches-map history]
-  )
+(defn branches-to-commits [branches-map history]
+  (vec (map (fn [[branch-name most-recent-commit]]
+         {:display-name (name branch-name)
+          :commit-state (:state (most-recent-commit history))}) branches-map)))
 
 (defn main []
   (om/root
@@ -28,7 +31,7 @@
         (render [this]
           (dom/div nil
                    (om/build drawing-area/view app)
-                   (commit-view)
+                   (apply dom/div nil (om/build-all commit/commit-view (branches-to-commits (:branches app) (:history app))))
                    (om/build keypress/key-listener app)))))
     app-state
     {:target (. js/document (getElementById "app"))}))

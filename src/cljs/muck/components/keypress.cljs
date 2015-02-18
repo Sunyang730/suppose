@@ -3,7 +3,8 @@
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [cljs.core.async :refer [put! chan <!]]
-            [goog.events :as events]))
+            [goog.events :as events]
+            [muck.version_control :as vc]))
 
 ;; This might make a good general component for handling key events.
 
@@ -32,7 +33,9 @@
 
 (def key-event
   {
-   :keyup {:c (fn [app] (.log js/console "das a key press bb"))}
+   :keyup {:c (fn [app]
+                (om/transact! app (fn [app-state]
+                                            (vc/new-branch app-state))))}
    :keydown {}
   })
 
@@ -72,9 +75,11 @@
                                     (do
                                       (.preventDefault e)
                                       (put! keychan [:keyup e]))))))
+    om/IWillUnmount
+    (will-unmount [_]
+                  (do
+                    (events/removeAll js/document "keydown")
+                    (events/removeAll js/document "keyup")))
     om/IRenderState
     (render-state [this {:keys [keyboard-chan]}]
       (dom/div nil ""))))
-
-
-
