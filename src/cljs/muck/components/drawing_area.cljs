@@ -35,8 +35,11 @@
          nil)))
 
 (defn draw-all-lines [monet-canvas paths]
-  (doseq [path paths]
-               (draw-line (:ctx monet-canvas) path)))
+  (if (not (nil? monet-canvas))
+    (do
+    (canvas/clear-rect (:ctx monet-canvas) {:x 0 :y 0 :w 500 :h 500})
+    (doseq [path paths]
+               (draw-line (:ctx monet-canvas) path)))))
 
 
 (defn last-ind [v]
