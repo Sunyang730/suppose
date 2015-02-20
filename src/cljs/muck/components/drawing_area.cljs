@@ -53,7 +53,7 @@
 ;;Variable amounts of arguments to funcitons?
 
 ;;Why handle such simple logic with core async?? Why not just do a callback?
-(defn view [{:keys [history active-commit mouseDown?] :as app-state} owner]
+(defn view [{:keys [history active-commit mouseDown? canvas-width canvas-height] :as app-state} owner]
   (reify
     om/IInitState
     (init-state [_]
@@ -86,14 +86,19 @@
             (recur))))))
     om/IDidMount
     (did-mount [_]
-      (om/set-state! owner :monet-canvas (canvas/init (om/get-node owner) "2d")))
+      (let [dom-element (om/get-node owner)
+            resize-func (fn []
+                          (om/update! app-state :canvas-width (.-offsetWidth (.-parentNode dom-element))))]
+      (resize-func)
+      (om/set-state! owner :monet-canvas (canvas/init dom-element "2d"))
+      (aset js/window "onresize" resize-func)))
     om/IRenderState
     (render-state [this {:keys [monet-canvas canvas-events]}]
       ;;Not having the right paremteters causes this to silently fail.
       ;;Bad bug.
       (dom/canvas #js {
-                       :width "500px"
-                       :height "500px"
+                       :width (str canvas-width "px")
+                       :height (str canvas-height "px")
                        :onMouseMove (fn [e]
                                       (put! canvas-events (merge (make-action "mouseMove" e) {:mouseDown? mouseDown?})))
                        :onMouseDown (fn [e]

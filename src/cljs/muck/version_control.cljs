@@ -59,16 +59,7 @@
 
 (def add-branch
   (add-and-update-parent (fn [parent-map _ _ new-commit]
-                           (merge-with conj commit-map {:branches new-commit}))))
-
-
-
-;;(defn add-commit
-;;  ([history new-commit] (assoc history (:location new-commit) new-commit))
-;;  ([history new-commit parentHash]
-;;    (let [updated-history (assoc history (:location new-commit) new-commit)]
-;;        (update-in updated-history [parentHash]
-;;                 #(assoc % :child (:location new-commit))))))
+                           (merge-with conj parent-map {:branches new-commit}))))
 
 
 (defn new-branch [{:keys [history active-branch branches active-commit] :as app-state}]
@@ -76,7 +67,7 @@
         branch-name (gen-branch)]
     (merge app-state {:history (add-branch history cloned-commit active-branch)
                       :branches (assoc branches branch-name (:location cloned-commit))
-                      :active-branch branch-named})))
+                      :active-branch branch-name})))
 
 ;;Update the history
 ;;Update the branches

@@ -13,13 +13,18 @@
 (defonce app-state (atom {:history {:start {:location :start :state []}}
                           :active-commit :start
                           :branches {:master :start}
-                          :active-branch :master}))
+                          :active-branch :master
+                          :canvas-width 500
+                          :canvas-height 500}))
 
-(defn branches-to-commits [branches-map history commit-chan]
+
+(defn branches-to-commits [branches-map history commit-chan [canvas-width canvas-height]]
   (vec (map (fn [[branch-name most-recent-commit]]
          {:display-name (name branch-name)
           :commit-state (:state (most-recent-commit history))
-          :commit-chan commit-chan}) branches-map)))
+          :commit-chan commit-chan
+          :canvas-width canvas-width
+          :canvas-height canvas-height}) branches-map)))
 
 (defn main []
   (om/root
@@ -40,9 +45,19 @@
             (recur))))))
         om/IRenderState
         (render-state [this {:keys [click-chan]}]
-          (dom/div nil
-                   (om/build drawing-area/view app)
-                   (apply dom/div #js {:className "branches"} (om/build-all commit/commit-view (branches-to-commits (:branches app) (:history app) click-chan)))
+          (dom/div #js {:className "container"}
+              (dom/div #js {:className "row"}
+                   (dom/div #js {:className "ten columns"}
+                           (om/build drawing-area/view app)
+                   (apply dom/div #js {:className "branches"}
+                          (dom/div #js {:className "tree"}
+                                   "TREE")
+                          (om/build-all commit/commit-view (branches-to-commits (:branches app)
+                                                                                (:history app)
+                                                                                click-chan
+                                                                                [(:canvas-width app) (:canvas-height app)]))))
+                   (dom/div #js {:className "two columns"}
+                           (dom/p nil "sidepanel")))
                    (om/build keypress/key-listener app)))))
     app-state
     {:target (. js/document (getElementById "app"))}))
