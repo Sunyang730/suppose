@@ -2,10 +2,11 @@
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [monet.canvas :as canvas]
-            [muck.drawing_area :as drawing-area]))
+            [muck.drawing_area :as drawing-area]
+            [cljs.core.async :refer [put! chan <!]]))
 
 ;;define canvas size global vars.
-(defn drawn-canvas [state owner]
+(defn drawn-canvas [{:keys [canvas-width canvas-height state]}  owner]
  (reify
   om/IInitState
     (init-state [_]
@@ -19,26 +20,23 @@
                 (dom/canvas #js {:width (str length "px")  :height (str length "px")}
                            (if (not (nil? monet-canvas))
                             (do
-                             (canvas/clear-rect (:ctx monet-canvas) {:x 0 :y 0 :w 500 :h 500})
                              (canvas/save (:ctx monet-canvas))
-                             (canvas/scale (:ctx monet-canvas)  .1 .1)
+                             (canvas/scale (:ctx monet-canvas) (/ length canvas-width) (/ length canvas-height))
                              (drawing-area/draw-all-lines monet-canvas state)
                              (canvas/restore (:ctx monet-canvas))
                              nil)
                             nil)))))
 
 
-
-
-
 ;;You can transact on cursors within the app state I believe
-(defn commit-view [{:keys [display-name commit-state]} owner]
+(defn commit-view [{:keys [display-name commit-state commit-chan canvas-width canvas-height]} owner]
   (reify
     om/IRender
     (render [this]
-      (dom/div {:onClick (fn [e]
-                           (om/transact! app-state (fn [as]
-                                                     (merge as {:active-commit 1
-                                                                :active-branch 1}))))}
-               (om/build drawn-canvas commit-state)
+      (dom/div #js {:onClick (fn [e]
+                           (put! commit-chan {:action-type :commit
+                                              :event-type :onClick
+                                              :event e
+                                              :data {:branch-name (keyword display-name)}}))}
+               (om/build drawn-canvas {:state commit-state :canvas-width canvas-width :canvas-height canvas-height} )
                (dom/p nil display-name)))))
