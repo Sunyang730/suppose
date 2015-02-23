@@ -16,7 +16,6 @@
 (comment (reset! app-state {:history {}
                             :active-commit :start}))
 
-@app-state
 
 (defn branches-to-commits [branches-map history]
   (vec (map (fn [[branch-name most-recent-commit]]
