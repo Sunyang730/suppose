@@ -6,7 +6,8 @@
             [muck.drawing_area :as drawing-area]
             [muck.keypress :as keypress]
             [muck.commit :as commit]
-            [cljs.core.async :refer [put! chan <!]]))
+            [cljs.core.async :refer [put! chan <!]]
+            [muck.color-picker :as cp]))
 
 ;;If a have an active branch do I need an active commit?
 
@@ -57,7 +58,8 @@
                                                                                 click-chan
                                                                                 [(:canvas-width app) (:canvas-height app)]))))
                    (dom/div #js {:className "two columns"}
-                           (dom/p nil "sidepanel")))
+                           (dom/p nil "sidepanel")
+                           (om/build cp/color-picker {:size 500})))
                    (om/build keypress/key-listener app)))))
     app-state
     {:target (. js/document (getElementById "app"))}))

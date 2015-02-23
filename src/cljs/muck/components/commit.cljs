@@ -17,7 +17,6 @@
                      (canvas/init (om/get-node owner) "2d")))
   om/IRenderState
   (render-state [this {:keys [monet-canvas length]}]
-                (.log js/console canvas-width canvas-height)
                 (dom/canvas #js {:width (str length "px")  :height (str length "px")}
                            (if (not (nil? monet-canvas))
                             (do
