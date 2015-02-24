@@ -24,7 +24,7 @@
          (-> ctx
              (canvas/begin-path)
              (canvas/stroke-style "#191d21")
-             (canvas/stroke-width 4)
+             (canvas/stroke-width 2)
              ((fn [ctx]
                (reduce (fn [ctx [x y]]
                          (do

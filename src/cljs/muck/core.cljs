@@ -3,11 +3,11 @@
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [muck.version_control :as vc]
-            [muck.drawing_area :as drawing-area]
             [muck.keypress :as keypress]
             [muck.commit :as commit]
             [cljs.core.async :refer [put! chan <!]]
-            [muck.color-picker :as cp]))
+            [muck.color-picker :as cp]
+            [muck.drawing_area :as drawing-area]))
 
 ;;If a have an active branch do I need an active commit?
 
@@ -33,19 +33,26 @@
       (reify
         om/IInitState
         (init-state [_]
-          {:click-chan (chan)})
+          {:click-chan (chan)
+           :color-channel (chan)})
         om/IWillMount
         (will-mount [_]
-         (let [click-chan (om/get-state owner :click-chan)]
+         (let [click-chan (om/get-state owner :click-chan)
+               color-chan (om/get-state owner :color-channel)]
           (go (loop []
             (let [event-map (<! click-chan)
                   branch-name (:branch-name (:data event-map))]
               (om/transact! app (fn [app-state]
                                   (assoc app-state :active-branch branch-name
                                                    :active-commit (branch-name (:branches app-state)))))
+            (recur))))
+          (go (loop []
+            (let [{:keys [r g b] :as rgb} (<! color-chan)]
+              (om/transact! app (fn [app-state]
+                                  (assoc app-state :rgb rgb)))
             (recur))))))
         om/IRenderState
-        (render-state [this {:keys [click-chan]}]
+        (render-state [this {:keys [click-chan color-channel]}]
           (dom/div #js {:className "container"}
               (dom/div #js {:className "row"}
                    (dom/div #js {:className "ten columns"}
@@ -59,7 +66,7 @@
                                                                                 [(:canvas-width app) (:canvas-height app)]))))
                    (dom/div #js {:className "two columns"}
                            (dom/p nil "sidepanel")
-                           (om/build cp/color-picker {:size 500})))
+                           (om/build cp/color-picker {:size 100 :color-channel color-channel})))
                    (om/build keypress/key-listener app)))))
     app-state
     {:target (. js/document (getElementById "app"))}))
