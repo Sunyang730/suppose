@@ -56,7 +56,59 @@
 
 ;;Variable amounts of arguments to funcitons?
 
-;;Why handle such simple logic with core async?? Why not just do a callback?
+;;When something is drawn it must fire on the canvas and be added to history.
+
+(defn start-path [ctx style-attrs]
+  (-> ctx
+     (canvas/begin-path)
+     (canvas/stroke-style (to-rgb (:stroke style-attrs)))
+     (canvas/stroke-width 1)))
+
+(defn extend-path [ctx [x y]]
+  (-> ctx
+    (canvas/line-to x y)
+    (canvas/stroke)))
+
+(defn draw-circle [ctx [x y] style-attrs]
+  (log [ctx (last pos-attrs)])
+  (-> ctx
+   (canvas/fill-style (to-rgb (:stroke style-attrs)))
+   (canvas/circle {:x x :y y :r 4})
+   (canvas/fill)))
+
+
+(def event-callbacks
+ {:mouseDown (fn [app-state event ctx]
+              (om/transact! app-state
+                            (fn [{:keys [history active-commit mousePosition branches active-branch rgb] :as app-state}]
+                                   (let [new-commit (vc/create-commit {:shape-type :line
+                                                                        :pos-attrs [[(:x event) (:y event)]]
+                                                                        :style-attrs {:stroke rgb}} (active-commit history))
+                                         new-history (vc/add-commit history new-commit active-commit)
+                                         last-state (last (:state new-commit))]
+                                    (do
+                                     (start-path ctx (:style-attrs last-state))
+                                     (extend-path ctx (last (:pos-attrs last-state)))
+                                     (assoc app-state :mouseDown? true
+                                                      :history new-history
+                                                      :active-commit (:location new-commit)
+                                                      :branches (assoc branches active-branch (:location new-commit)))) ))))
+
+ :mouseUp (fn [app-state _ _]
+            (om/transact! app-state :mouseDown? (fn [_] false)))
+
+ :mouseMove (fn [app-state event ctx]
+              (if (:mouseDown? event)
+                 (om/transact! app-state
+                   (fn [{:keys [history active-commit] :as app-state}]
+                     (do
+                      (extend-path ctx [(:x event) (:y event)])
+                     (update-in app-state [:history active-commit :state]
+                                (fn [state-vec]
+                                 (update-in state-vec [(last-ind state-vec) :pos-attrs]
+                                            (fn [step]
+                                              (conj step [(:x event) (:y event)]))))))))))})
+
 (defn view [{:keys [history active-commit mouseDown? canvas-width canvas-height rgb] :as app-state} owner]
   (reify
     om/IInitState
@@ -66,28 +118,9 @@
     (will-mount [_]
       (let [canvas-events (om/get-state owner :canvas-events)]
         (go (loop []
-          (let [event (<! canvas-events)]
-            (cond
-             (= (:type event) "mouseDown") (om/transact! app-state (fn [{:keys [history active-commit mousePosition branches active-branch rgb] :as app-state}]
-                                                                (let [new-commit (vc/create-commit {:shape-type :line
-                                                                                                     :pos-attrs [[(:x event) (:y event)]]
-                                                                                                     :style-attrs {:stroke rgb}} (active-commit history))
-                                                                      new-history (vc/add-commit history new-commit active-commit)]
-                                                                  (assoc app-state :mouseDown? true
-                                                                                   :history new-history
-                                                                                   :active-commit (:location new-commit)
-                                                                                   :branches (assoc branches active-branch (:location new-commit))))))
-             (= (:type event) "mouseUp") (om/transact! app-state :mouseDown? (fn [_] false))
-             (= (:type event) "mouseMove")
-               (if (:mouseDown? event)
-                 (om/transact! app-state
-                   (fn [{:keys [history active-commit] :as app-state}]
-                     (update-in app-state [:history active-commit :state]
-                                (fn [state-vec]
-                                 (update-in state-vec [(last-ind state-vec) :pos-attrs]
-                                            (fn [step]
-                                              (conj step [(:x event) (:y event)])))))))
-                 nil))
+          (let [event (<! canvas-events)
+                ctx (:ctx (om/get-state owner :monet-canvas))]
+            (((:type event) event-callbacks) app-state event ctx)
             (recur))))))
     om/IDidMount
     (did-mount [_]
@@ -103,13 +136,14 @@
                        :width (str canvas-width "px")
                        :height (str canvas-height "px")
                        :onMouseMove (fn [e]
-                                      (put! canvas-events (merge (make-action "mouseMove" e) {:mouseDown? mouseDown?})))
+                                      (put! canvas-events (merge (make-action :mouseMove e) {:mouseDown? mouseDown?})))
                        :onMouseDown (fn [e]
-                                      (put! canvas-events (make-action "mouseDown" e)))
+                                      (put! canvas-events (make-action :mouseDown e)))
                        :onMouseUp (fn [e]
-                                    (put! canvas-events (make-action "mouseUp" e)))
+                                    (put! canvas-events (make-action :mouseUp e)))
                       }
-             (draw-all-lines monet-canvas (:state (active-commit history)))))))
+             ;;(draw-all-lines monet-canvas (:state (active-commit history)))
+                  ))))
 
 
 
