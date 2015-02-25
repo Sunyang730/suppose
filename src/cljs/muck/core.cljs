@@ -64,8 +64,9 @@
                    (dom/div #js {:className "ten columns"}
                            (om/build drawing-area/view app))
                    (dom/div #js {:className "two columns"}
-                           (dom/p nil "sidepanel")
-                           (om/build cp/color-picker {:size 100 :color-channel color-channel})))
+                           (om/build cp/color-picker {:size 100 :color-channel color-channel})
+                           ;;(apply dom/div nil (om/build-all ))
+                            ))
               (dom/div #js {:className "row"}
                    (apply dom/div #js {:className "branches twelve columns"}
                           (dom/div #js {:className "tree"}
