@@ -16,8 +16,12 @@
                           :branches {:master :start}
                           :active-branch :master
                           :canvas-width 500
-                          :canvas-height 500}))
+                          :canvas-height 500
+                          :rgb {:r 50 :g 50 :b 50}}))
 
+
+;;State
+;;[ [ [1 2][2 2][2 3] ]  ]
 
 (defn branches-to-commits [branches-map history commit-chan [canvas-width canvas-height]]
   (vec (map (fn [[branch-name most-recent-commit]]

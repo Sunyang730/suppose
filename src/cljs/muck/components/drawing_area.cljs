@@ -18,18 +18,21 @@
 (defn console-log [thing]
   (.log js/console thing))
 
-(defn draw-line [ctx line-vec]
+(defn to-rgb [{:keys [r g b]}]
+  (str "rgb(" r "," g "," b ")"))
+
+(defn draw-line [ctx {:keys [pos-attrs style-attrs]}]
      (if (not (nil? ctx))
        (do
          (-> ctx
              (canvas/begin-path)
-             (canvas/stroke-style "#191d21")
+             (canvas/stroke-style (to-rgb (:stroke style-attrs)))
              (canvas/stroke-width 2)
              ((fn [ctx]
                (reduce (fn [ctx [x y]]
                          (do
                            (canvas/line-to ctx x y)
-                           ctx)) ctx line-vec)))
+                           ctx)) ctx pos-attrs)))
              (canvas/stroke)
              (canvas/close-path))
          nil)))
@@ -37,6 +40,7 @@
 (defn draw-all-lines [monet-canvas paths]
   (if (not (nil? monet-canvas))
     (do
+    (log "render")
     (canvas/clear-rect (:ctx monet-canvas) {:x 0 :y 0 :w 500 :h 500})
     (doseq [path paths]
                (draw-line (:ctx monet-canvas) path)))))
@@ -53,7 +57,7 @@
 ;;Variable amounts of arguments to funcitons?
 
 ;;Why handle such simple logic with core async?? Why not just do a callback?
-(defn view [{:keys [history active-commit mouseDown? canvas-width canvas-height] :as app-state} owner]
+(defn view [{:keys [history active-commit mouseDown? canvas-width canvas-height rgb] :as app-state} owner]
   (reify
     om/IInitState
     (init-state [_]
@@ -63,10 +67,11 @@
       (let [canvas-events (om/get-state owner :canvas-events)]
         (go (loop []
           (let [event (<! canvas-events)]
-            ;;Seperate the recording of events from
             (cond
-             (= (:type event) "mouseDown") (om/transact! app-state (fn [{:keys [history active-commit mousePosition branches active-branch] :as app-state}]
-                                                                (let [new-commit (vc/create-commit [[(:x event) (:y event)]] (active-commit history))
+             (= (:type event) "mouseDown") (om/transact! app-state (fn [{:keys [history active-commit mousePosition branches active-branch rgb] :as app-state}]
+                                                                (let [new-commit (vc/create-commit {:shape-type :line
+                                                                                                     :pos-attrs [[(:x event) (:y event)]]
+                                                                                                     :style-attrs {:stroke rgb}} (active-commit history))
                                                                       new-history (vc/add-commit history new-commit active-commit)]
                                                                   (assoc app-state :mouseDown? true
                                                                                    :history new-history
@@ -79,7 +84,7 @@
                    (fn [{:keys [history active-commit] :as app-state}]
                      (update-in app-state [:history active-commit :state]
                                 (fn [state-vec]
-                                 (update-in state-vec [(last-ind state-vec)]
+                                 (update-in state-vec [(last-ind state-vec) :pos-attrs]
                                             (fn [step]
                                               (conj step [(:x event) (:y event)])))))))
                  nil))
@@ -94,8 +99,6 @@
       (aset js/window "onresize" resize-func)))
     om/IRenderState
     (render-state [this {:keys [monet-canvas canvas-events]}]
-      ;;Not having the right paremteters causes this to silently fail.
-      ;;Bad bug.
       (dom/canvas #js {
                        :width (str canvas-width "px")
                        :height (str canvas-height "px")
