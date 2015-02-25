@@ -67,6 +67,7 @@
         branch-name (gen-branch)]
     (merge app-state {:history (add-branch history cloned-commit active-branch)
                       :branches (assoc branches branch-name (:location cloned-commit))
+                      :active-commit (:location cloned-commit)
                       :active-branch branch-name})))
 
 ;;Update the history

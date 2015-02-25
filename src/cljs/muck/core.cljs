@@ -19,17 +19,19 @@
                           :canvas-height 500
                           :rgb {:r 50 :g 50 :b 50}}))
 
-
+;;(:canvas-width @app-state)
 ;;State
 ;;[ [ [1 2][2 2][2 3] ]  ]
-
-(defn branches-to-commits [branches-map history commit-chan [canvas-width canvas-height]]
+;;I do this function on every mouse drag.
+(defn branches-to-commits [{:keys [active-commit branches history active-branch canvas-width canvas-height]} commit-chan]
   (vec (map (fn [[branch-name most-recent-commit]]
          {:display-name (name branch-name)
           :commit-state (:state (most-recent-commit history))
           :commit-chan commit-chan
           :canvas-width canvas-width
-          :canvas-height canvas-height}) branches-map)))
+          :canvas-height canvas-height
+          :active-commit active-commit
+          :most-recent-commit most-recent-commit}) branches)))
 
 (defn main []
   (om/root
@@ -58,19 +60,17 @@
         om/IRenderState
         (render-state [this {:keys [click-chan color-channel]}]
           (dom/div #js {:className "container"}
-              (dom/div #js {:className "row"}
+              (dom/div #js {:className "drawspace row"}
                    (dom/div #js {:className "ten columns"}
-                           (om/build drawing-area/view app)
-                   (apply dom/div #js {:className "branches"}
-                          (dom/div #js {:className "tree"}
-                                   "TREE")
-                          (om/build-all commit/commit-view (branches-to-commits (:branches app)
-                                                                                (:history app)
-                                                                                click-chan
-                                                                                [(:canvas-width app) (:canvas-height app)]))))
+                           (om/build drawing-area/view app))
                    (dom/div #js {:className "two columns"}
                            (dom/p nil "sidepanel")
                            (om/build cp/color-picker {:size 100 :color-channel color-channel})))
+              (dom/div #js {:className "row"}
+                   (apply dom/div #js {:className "branches twelve columns"}
+                          (dom/div #js {:className "tree"}
+                                   "TREE")
+                          (om/build-all commit/commit-view (branches-to-commits app click-chan))))
                    (om/build keypress/key-listener app)))))
     app-state
     {:target (. js/document (getElementById "app"))}))

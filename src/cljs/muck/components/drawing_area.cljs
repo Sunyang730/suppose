@@ -21,13 +21,25 @@
 (defn to-rgb [{:keys [r g b]}]
   (str "rgb(" r "," g "," b ")"))
 
+;;Next prevent the re-renders on the commit windows.
+;;the ctx's for the main window may need to be in the application state.
+;;Maybe just the bottom canvas.
+;;After that fix clicking on a commit window.
+;;How will the main canvas know what commit to update?
+;;What is an elegant solution for this?
+
+;;Questiona about whether to re-render: is it the right branch? Is the active-commit new?
+;;Could have a draw in progress atom?
+
+(def line-width 2)
+
 (defn draw-line [ctx {:keys [pos-attrs style-attrs]}]
      (if (not (nil? ctx))
        (do
          (-> ctx
              (canvas/begin-path)
              (canvas/stroke-style (to-rgb (:stroke style-attrs)))
-             (canvas/stroke-width 2)
+             (canvas/stroke-width line-width)
              ((fn [ctx]
                (reduce (fn [ctx [x y]]
                          (do
@@ -37,13 +49,12 @@
              (canvas/close-path))
          nil)))
 
-(defn draw-all-lines [monet-canvas paths]
+(defn draw-all-lines [monet-canvas paths [canvas-width canvas-height]]
   (if (not (nil? monet-canvas))
     (do
-    (log "render")
-    (canvas/clear-rect (:ctx monet-canvas) {:x 0 :y 0 :w 500 :h 500})
-    (doseq [path paths]
-               (draw-line (:ctx monet-canvas) path)))))
+      (canvas/clear-rect (:ctx monet-canvas) {:x 0 :y 0 :w canvas-width :h canvas-height})
+      (doseq [path paths]
+                 (draw-line (:ctx monet-canvas) path)))))
 
 
 (defn last-ind [v]
@@ -62,7 +73,7 @@
   (-> ctx
      (canvas/begin-path)
      (canvas/stroke-style (to-rgb (:stroke style-attrs)))
-     (canvas/stroke-width 1)))
+     (canvas/stroke-width line-width)))
 
 (defn extend-path [ctx [x y]]
   (-> ctx
@@ -70,7 +81,6 @@
     (canvas/stroke)))
 
 (defn draw-circle [ctx [x y] style-attrs]
-  (log [ctx (last pos-attrs)])
   (-> ctx
    (canvas/fill-style (to-rgb (:stroke style-attrs)))
    (canvas/circle {:x x :y y :r 4})
@@ -85,8 +95,11 @@
 ;;Mouse move: extend line on top canvas. Clearing along the way.
 ;;Mouse up: clear top canvas - kick top line to the back canvas
 
+(defn get-active-shape-state [{:keys [active-commit history] :as app-state}]
+  (:state (active-commit history)))
+
 (defn get-most-recent-shape [{:keys [active-commit history] :as app-state}]
-  (last (:state (active-commit history))))
+  (last (get-active-shape-state app-state)))
 
 
 (def event-callbacks
@@ -125,11 +138,14 @@
                                             (fn [step]
                                               (conj step [(:x event) (:y event)]))))))))))})
 
+
+
 (defn view [{:keys [history active-commit mouseDown? canvas-width canvas-height rgb] :as app-state} owner]
   (reify
     om/IInitState
     (init-state [_]
-      {:canvas-events (chan)})
+      {:canvas-events (chan)
+       })
     om/IWillMount
     (will-mount [_]
       (let [canvas-events (om/get-state owner :canvas-events)]
@@ -137,7 +153,7 @@
           (let [event (<! canvas-events)
                 top-ctx (om/get-state owner :top-ctx)
                 bottom-ctx (om/get-state owner :bottom-ctx)]
-            (((:type event) event-callbacks) app-state event [top-ctx bottom-ctx] [canvas-width canvas-height])
+            (((:type event) event-callbacks) app-state event [top-ctx bottom-ctx] [(:canvas-width event) (:canvas-height event)])
             (recur))))))
     om/IDidMount
     (did-mount [_]
@@ -153,6 +169,12 @@
                                   :top-ctx (get-ctx topLayerDom)
                                   :bottom-ctx (get-ctx bottomLayerDom))))
       (aset js/window "onresize" resize-func)))
+    om/IWillReceiveProps
+      (will-receive-props [this next-props]
+                   (if (not (= (:active-branch next-props) (:active-branch (om/get-props owner))))
+                     (do
+                      (draw-all-lines {:ctx (om/get-state owner :bottom-ctx)} (get-active-shape-state next-props) [canvas-width canvas-height])
+                      (om/set-state! owner :active-branch (:active-branch next-props)))))
     om/IRenderState
     (render-state [this {:keys [top-ctx bottom-ctx canvas-events]}]
       (dom/div #js {:className "canvasContainer"}
@@ -161,11 +183,15 @@
                          :width (str canvas-width "px")
                          :height (str canvas-height "px")
                          :onMouseMove (fn [e]
-                                        (put! canvas-events (merge (make-action :mouseMove e) {:mouseDown? mouseDown?})))
+                                        (put! canvas-events (merge (make-action :mouseMove e) {:mouseDown? mouseDown?
+                                                                                               :canvas-width canvas-width
+                                                                                               :canvas-height canvas-height})))
                          :onMouseDown (fn [e]
-                                        (put! canvas-events (make-action :mouseDown e)))
+                                        (put! canvas-events (merge (make-action :mouseDown e) {:canvas-width canvas-width
+                                                                                               :canvas-height canvas-height}) ))
                          :onMouseUp (fn [e]
-                                      (put! canvas-events (make-action :mouseUp e)))
+                                      (put! canvas-events (merge (make-action :mouseUp e) {:canvas-width canvas-width
+                                                                                           :canvas-height canvas-height}) ))
                         })
         (dom/canvas #js {:className "bottomLayer"
                         :width (str canvas-width "px")
