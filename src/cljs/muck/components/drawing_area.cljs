@@ -76,9 +76,21 @@
    (canvas/circle {:x x :y y :r 4})
    (canvas/fill)))
 
+(defn get-ctx [canvas-element]
+  (.getContext canvas-element "2d"))
+
+;;Maybe its snowing song really good 21 min
+
+;;Mouse down: init line on top canvas
+;;Mouse move: extend line on top canvas. Clearing along the way.
+;;Mouse up: clear top canvas - kick top line to the back canvas
+
+(defn get-most-recent-shape [{:keys [active-commit history] :as app-state}]
+  (last (:state (active-commit history))))
+
 
 (def event-callbacks
- {:mouseDown (fn [app-state event ctx]
+ {:mouseDown (fn [app-state event [top-ctx bottom-ctx] [width height]]
               (om/transact! app-state
                             (fn [{:keys [history active-commit mousePosition branches active-branch rgb] :as app-state}]
                                    (let [new-commit (vc/create-commit {:shape-type :line
@@ -87,22 +99,26 @@
                                          new-history (vc/add-commit history new-commit active-commit)
                                          last-state (last (:state new-commit))]
                                     (do
-                                     (start-path ctx (:style-attrs last-state))
-                                     (extend-path ctx (last (:pos-attrs last-state)))
+                                     (start-path top-ctx (:style-attrs last-state))
+                                     (extend-path top-ctx (last (:pos-attrs last-state)))
                                      (assoc app-state :mouseDown? true
                                                       :history new-history
                                                       :active-commit (:location new-commit)
                                                       :branches (assoc branches active-branch (:location new-commit)))) ))))
 
- :mouseUp (fn [app-state _ _]
-            (om/transact! app-state :mouseDown? (fn [_] false)))
+ :mouseUp (fn [app-state event [top-ctx bottom-ctx] [width height]]
+            (do
+              (canvas/clear-rect top-ctx {:x 0 :y 0 :w width :h height})
+              (draw-line bottom-ctx (get-most-recent-shape @app-state))
+              (om/transact! app-state :mouseDown? (fn [_] false))))
 
- :mouseMove (fn [app-state event ctx]
+ :mouseMove (fn [app-state event [top-ctx bottom-ctx] [width height]]
               (if (:mouseDown? event)
                  (om/transact! app-state
                    (fn [{:keys [history active-commit] :as app-state}]
                      (do
-                      (extend-path ctx [(:x event) (:y event)])
+                      (canvas/clear-rect top-ctx {:x 0 :y 0 :w width :h height})
+                      (extend-path top-ctx [(:x event) (:y event)])
                      (update-in app-state [:history active-commit :state]
                                 (fn [state-vec]
                                  (update-in state-vec [(last-ind state-vec) :pos-attrs]
@@ -119,31 +135,41 @@
       (let [canvas-events (om/get-state owner :canvas-events)]
         (go (loop []
           (let [event (<! canvas-events)
-                ctx (:ctx (om/get-state owner :monet-canvas))]
-            (((:type event) event-callbacks) app-state event ctx)
+                top-ctx (om/get-state owner :top-ctx)
+                bottom-ctx (om/get-state owner :bottom-ctx)]
+            (((:type event) event-callbacks) app-state event [top-ctx bottom-ctx] [canvas-width canvas-height])
             (recur))))))
     om/IDidMount
     (did-mount [_]
       (let [dom-element (om/get-node owner)
+            dom-children (.-children dom-element)
+            topLayerDom (aget dom-children 0)
+            bottomLayerDom (aget dom-children 1)
             resize-func (fn []
                           (om/update! app-state :canvas-width (.-offsetWidth (.-parentNode dom-element))))]
       (resize-func)
-      (om/set-state! owner :monet-canvas (canvas/init dom-element "2d"))
+      (om/update-state! owner (fn [state]
+                                (assoc state
+                                  :top-ctx (get-ctx topLayerDom)
+                                  :bottom-ctx (get-ctx bottomLayerDom))))
       (aset js/window "onresize" resize-func)))
     om/IRenderState
-    (render-state [this {:keys [monet-canvas canvas-events]}]
-      (dom/canvas #js {
-                       :width (str canvas-width "px")
-                       :height (str canvas-height "px")
-                       :onMouseMove (fn [e]
-                                      (put! canvas-events (merge (make-action :mouseMove e) {:mouseDown? mouseDown?})))
-                       :onMouseDown (fn [e]
-                                      (put! canvas-events (make-action :mouseDown e)))
-                       :onMouseUp (fn [e]
-                                    (put! canvas-events (make-action :mouseUp e)))
-                      }
-             ;;(draw-all-lines monet-canvas (:state (active-commit history)))
-                  ))))
+    (render-state [this {:keys [top-ctx bottom-ctx canvas-events]}]
+      (dom/div #js {:className "canvasContainer"}
+        (dom/canvas #js {
+                         :className "topLayer"
+                         :width (str canvas-width "px")
+                         :height (str canvas-height "px")
+                         :onMouseMove (fn [e]
+                                        (put! canvas-events (merge (make-action :mouseMove e) {:mouseDown? mouseDown?})))
+                         :onMouseDown (fn [e]
+                                        (put! canvas-events (make-action :mouseDown e)))
+                         :onMouseUp (fn [e]
+                                      (put! canvas-events (make-action :mouseUp e)))
+                        })
+        (dom/canvas #js {:className "bottomLayer"
+                        :width (str canvas-width "px")
+                        :height (str canvas-height "px")}))  )))
 
 
 

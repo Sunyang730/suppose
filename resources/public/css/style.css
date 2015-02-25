@@ -97,3 +97,21 @@ canvas {
     border: 1px solid black;
 }
 
+.canvasContainer {
+  position: relative;
+}
+
+.bottomLayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+}
+
+.topLayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1;
+}
+
