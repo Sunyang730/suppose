@@ -104,7 +104,7 @@
 
 (def event-callbacks
  {:mouseDown (fn [app-state event [top-ctx bottom-ctx] [width height]]
-              (.log js/console "pen down")
+              ;;(.log js/console "pen down")
               (om/transact! app-state
                             (fn [{:keys [history active-commit mousePosition branches active-branch rgb] :as app-state}]
                                    (let [new-commit (vc/create-commit {:shape-type :line
@@ -122,13 +122,13 @@
 
  :mouseUp (fn [app-state event [top-ctx bottom-ctx] [width height]]
             (do
-              (.log js/console "pen up")
+              (.log js/console width height)
               (canvas/clear-rect top-ctx {:x 0 :y 0 :w width :h height})
               (draw-line bottom-ctx (get-most-recent-shape @app-state))
               (om/transact! app-state :mouseDown? (fn [_] false))))
 
  :mouseMove (fn [app-state event [top-ctx bottom-ctx] [width height]]
-              (.log js/console (str "movin " (:mouseDown? event)) )
+              ;;(.log js/console (str "movin " (:mouseDown? event)) )
               (if (:mouseDown? event)
                  (om/transact! app-state
                    (fn [{:keys [history active-commit] :as app-state}]
@@ -139,7 +139,10 @@
                                 (fn [state-vec]
                                  (update-in state-vec [(last-ind state-vec) :pos-attrs]
                                             (fn [step]
-                                              (conj step [(:x event) (:y event)]))))))))))})
+                                              (let [[last-x last-y] (last step)]
+                                               (if (and (= last-x (:x event)) (= last-y (:y event)))
+                                                step
+                                                (conj step [(:x event) (:y event)]))))))))))))})
 
 
 
@@ -174,10 +177,13 @@
       (aset js/window "onresize" resize-func)))
     om/IWillReceiveProps
       (will-receive-props [this next-props]
+                  (let [width (:canvas-width next-props)
+                        height (:canvas-height next-props)]
                    (if (not (= (:active-branch next-props) (:active-branch (om/get-props owner))))
                      (do
-                      (draw-all-lines {:ctx (om/get-state owner :bottom-ctx)} (get-active-shape-state next-props) [canvas-width canvas-height])
-                      (om/set-state! owner :active-branch (:active-branch next-props)))))
+                      (canvas/clear-rect (om/get-state owner :top-ctx) {:x 0 :y 0 :w width :h height})
+                      (draw-all-lines {:ctx (om/get-state owner :bottom-ctx)} (get-active-shape-state next-props) [width height])
+                      (om/set-state! owner :active-branch (:active-branch next-props))))))
     om/IRenderState
     (render-state [this {:keys [top-ctx bottom-ctx canvas-events]}]
       (dom/div #js {:className "canvasContainer"}
