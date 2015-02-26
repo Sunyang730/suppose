@@ -122,8 +122,10 @@
 
  :mouseUp (fn [app-state event [top-ctx bottom-ctx] [width height]]
             (do
-              (.log js/console width height)
               (canvas/clear-rect top-ctx {:x 0 :y 0 :w width :h height})
+              ;;This is a hack. There is a case in my code where mouse down has not updated yey, but the move event fires.
+              ;;I need to fix that.
+              (canvas/begin-path top-ctx)
               (draw-line bottom-ctx (get-most-recent-shape @app-state))
               (om/transact! app-state :mouseDown? (fn [_] false))))
 
@@ -179,7 +181,7 @@
       (will-receive-props [this next-props]
                   (let [width (:canvas-width next-props)
                         height (:canvas-height next-props)]
-                   (if (not (= (:active-branch next-props) (:active-branch (om/get-props owner))))
+                   (if (not (= (:active-commit next-props) (:active-commit (om/get-props owner))))
                      (do
                       (canvas/clear-rect (om/get-state owner :top-ctx) {:x 0 :y 0 :w width :h height})
                       (draw-all-lines {:ctx (om/get-state owner :bottom-ctx)} (get-active-shape-state next-props) [width height])

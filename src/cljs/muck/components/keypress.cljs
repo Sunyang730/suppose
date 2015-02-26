@@ -31,13 +31,24 @@
    8 :delete})
 
 
+;;What will undoing at the top of a branch do?
+;;I need to add branch undoing logic
+(defn undo-commit [{:keys [history active-commit] :as app-state}]
+  (let [removed-commit (active-commit history)
+        hist-with-undone-commit (dissoc history active-commit)]
+     (merge app-state {
+                       :active-commit (:parent removed-commit)
+                       :history (assoc-in hist-with-undone-commit [(:parent removed-commit) :child] nil)
+                      })))
+
 (def key-event
-  {
-   :keyup {:c (fn [app]
-                (om/transact! app (fn [app-state]
-                                            (vc/new-branch app-state))))}
-   :keydown {}
-  })
+  {:c (fn [app]
+         (om/transact! app (fn [app-state]
+                                     (vc/new-branch app-state))))
+   :cmd-z (fn [app]
+            (.log js/console "here")
+            (om/transact! app (fn [app-state]
+                                    (undo-commit app-state))))})
 
 
 (defn handle-key-event [app [press-type event]]
@@ -45,10 +56,10 @@
         metaKey (.-metaKey event)
         shiftKey (.-shiftKey event)
         ctrlKey (.-ctrlKey event)
-        event-map (press-type key-event)
-        key-keyword (get key-codes keyCode)]
-      (if (contains? event-map key-keyword)
-        ((key-keyword event-map) app))))
+        key-keyword (get key-codes keyCode)
+        key-keyword (if (and metaKey key-keyword) (keyword (str "cmd-" (name key-keyword))) key-keyword)]
+      (if (contains? key-event key-keyword)
+        ((key-keyword key-event) app))))
 
 
 (defn key-listener [app owner]
@@ -71,10 +82,11 @@
                                     (do
                                       (.preventDefault e)
                                       (put! keychan [:keydown e]))))
-        (events/listen js/document "keyup" (fn [e]
-                                    (do
-                                      (.preventDefault e)
-                                      (put! keychan [:keyup e]))))))
+        ;;(events/listen js/document "keyup" (fn [e]
+        ;;                            (do
+        ;;                              (.preventDefault e)
+        ;;                              (put! keychan [:keyup e]))))
+        ))
     om/IWillUnmount
     (will-unmount [_]
                   (do
