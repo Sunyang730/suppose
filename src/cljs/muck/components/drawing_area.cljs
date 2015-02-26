@@ -104,6 +104,7 @@
 
 (def event-callbacks
  {:mouseDown (fn [app-state event [top-ctx bottom-ctx] [width height]]
+              (.log js/console "pen down")
               (om/transact! app-state
                             (fn [{:keys [history active-commit mousePosition branches active-branch rgb] :as app-state}]
                                    (let [new-commit (vc/create-commit {:shape-type :line
@@ -121,11 +122,13 @@
 
  :mouseUp (fn [app-state event [top-ctx bottom-ctx] [width height]]
             (do
+              (.log js/console "pen up")
               (canvas/clear-rect top-ctx {:x 0 :y 0 :w width :h height})
               (draw-line bottom-ctx (get-most-recent-shape @app-state))
               (om/transact! app-state :mouseDown? (fn [_] false))))
 
  :mouseMove (fn [app-state event [top-ctx bottom-ctx] [width height]]
+              (.log js/console (str "movin " (:mouseDown? event)) )
               (if (:mouseDown? event)
                  (om/transact! app-state
                    (fn [{:keys [history active-commit] :as app-state}]

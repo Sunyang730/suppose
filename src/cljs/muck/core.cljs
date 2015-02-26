@@ -19,6 +19,8 @@
                           :canvas-height 500
                           :rgb {:r 50 :g 50 :b 50}}))
 
+
+;;(:hash1 (:history @app-state))
 ;;(:canvas-width @app-state)
 ;;State
 ;;[ [ [1 2][2 2][2 3] ]  ]

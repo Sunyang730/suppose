@@ -5,6 +5,7 @@
             [muck.drawing_area :as drawing-area]
             [cljs.core.async :refer [put! chan <!]]))
 
+
 ;;define canvas size global vars.
 (defn drawn-canvas [{:keys [canvas-width canvas-height state active-commit most-recent-commit]}  owner]
  (reify
