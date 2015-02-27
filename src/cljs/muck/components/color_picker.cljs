@@ -5,6 +5,7 @@
             [cljs.core.async :refer [put! chan <!]]))
 
 
+(enable-console-print!)
 
 (defn make-action [e-type event]
   {:type e-type
@@ -99,9 +100,13 @@
                 (dom/rect #js {:fillOpacity 0
                                :stroke "gray"
                                :strokeWidth 1
-                               :x (* percentage size)
+                               :x (* (- 1 percentage) size)
                                :y 0
                                :width "3%" :height "100%"})))))
+
+
+(defn to-rgb-str [{:keys [r g b]}]
+  (str "rgb(" r "," g "," b ")"))
 
 ;;Saturation, Lightness Picker
 (defn saturation-lightness-picker [{:keys [size backgroundColor channel percentage-x percentage-y]} owner]
@@ -114,7 +119,8 @@
       "")
     om/IRenderState
     (render-state [this {:keys [dragging?]}]
-                (dom/div #js {:style #js {:backgroundColor backgroundColor
+                (print backgroundColor)
+                (dom/div #js {:style #js {:backgroundColor (to-rgb-str backgroundColor)
                                           :width (str size "px")
                                           :height (str size "px")}}
                  (dom/svg #js {:width (str size "px")
@@ -136,7 +142,7 @@
                           (dom/rect #js {:x 0 :y 0 :width "100%" :height "100%" :fill "url(#gradient-white)"})
                           (dom/rect #js {:x 0 :y 0 :width "100%" :height "100%" :fill "url(#gradient-black)"})
                           (dom/circle #js {:cx (* size percentage-x)
-                                           :cy (* size percentage-y)
+                                           :cy (* size (- 1 percentage-y))
                                            :r 3
                                            :fillOpacity 0
                                            :stroke "gray"
@@ -153,11 +159,14 @@
      :s sl-x-percentage
      :v sl-y-percentage}))
 
-(defn color-picker [{:keys [size color-channel]}  owner]
+(defn state-to-rgb [owner]
+  (-> (om/get-state owner) make-hsv hsv2rgb))
+
+(defn color-picker [{:keys [size rgb]}  owner]
  (reify
   om/IInitState
     (init-state [_]
-      {:backgroundColor "#0040FF"
+      {:backgroundColor {:r 51, :g 48, :b 40}
        :channel (chan)
        :hue-percentage .2
        :sl-x-percentage .2
@@ -171,12 +180,14 @@
                     (om/update-state! owner
                               (fn [state]
                                 (merge state {:sl-x-percentage (/ x size)
-                                             :sl-y-percentage (/ y size)})))
+                                             :sl-y-percentage (/ (- size y) size)})))
                 (= picker :hue)
                   (om/update-state! owner
                             (fn [state]
-                              (merge state {:hue-percentage (/ x size)}))))
-        (put! color-channel (-> (om/get-state owner) make-hsv hsv2rgb))
+                              (let [new-hue-state (merge state {:hue-percentage (/ (- size x) size)})]
+                                  (merge new-hue-state {:backgroundColor (-> new-hue-state make-hsv hsv2rgb)})))))
+        (om/transact! rgb (fn [rgb]
+                           (-> (om/get-state owner) make-hsv hsv2rgb)))
         (recur))))))
   om/IRenderState
   (render-state [this {:keys [backgroundColor channel hue-percentage

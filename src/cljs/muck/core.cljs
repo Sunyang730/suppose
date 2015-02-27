@@ -10,6 +10,8 @@
             [muck.drawing_area :as drawing-area]))
 
 ;;If a have an active branch do I need an active commit?
+(enable-console-print!)
+
 
 (defonce app-state (atom {:history {:start {:location :start :state []}}
                           :active-commit :start
@@ -35,6 +37,11 @@
           :active-commit active-commit
           :most-recent-commit most-recent-commit}) branches)))
 
+
+;;Refactor:
+;;One channel passed down and based on the event type make the change?
+;;Better yet the color picker should have not channel.
+
 (defn main []
   (om/root
     (fn [app owner]
@@ -45,19 +52,13 @@
            :color-channel (chan)})
         om/IWillMount
         (will-mount [_]
-         (let [click-chan (om/get-state owner :click-chan)
-               color-chan (om/get-state owner :color-channel)]
+         (let [click-chan (om/get-state owner :click-chan)]
           (go (loop []
             (let [event-map (<! click-chan)
                   branch-name (:branch-name (:data event-map))]
               (om/transact! app (fn [app-state]
                                   (assoc app-state :active-branch branch-name
                                                    :active-commit (branch-name (:branches app-state)))))
-            (recur))))
-          (go (loop []
-            (let [{:keys [r g b] :as rgb} (<! color-chan)]
-              (om/transact! app (fn [app-state]
-                                  (assoc app-state :rgb rgb)))
             (recur))))))
         om/IRenderState
         (render-state [this {:keys [click-chan color-channel]}]
@@ -66,13 +67,12 @@
                    (dom/div #js {:className "ten columns"}
                            (om/build drawing-area/view app))
                    (dom/div #js {:className "two columns"}
-                           (om/build cp/color-picker {:size 100 :color-channel color-channel})
+                           (om/build cp/color-picker {:size 100 :rgb (:rgb app)})
                            ;;(apply dom/div nil (om/build-all ))
                             ))
               (dom/div #js {:className "row"}
                    (apply dom/div #js {:className "branches twelve columns"}
-                          (dom/div #js {:className "tree"}
-                                   "TREE")
+                          (dom/div #js {:className "tree"} "TREE")
                           (om/build-all commit/commit-view (branches-to-commits app click-chan))))
                    (om/build keypress/key-listener app)))))
     app-state
